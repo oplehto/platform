@@ -13,19 +13,19 @@ import (
 	"go.uber.org/zap"
 )
 
-var transpileCmd = &cobra.Command{
-	Use:   "transpilerd",
-	Short: "Transpiler Query Server",
+var influxqlCmd = &cobra.Command{
+	Use:   "influxqld",
+	Short: "InfluxQL Query Server",
 	Run: func(cmd *cobra.Command, args []string) {
 		logger := influxlogger.New(os.Stdout)
-		if err := transpileF(cmd, logger, args); err != nil && err != context.Canceled {
+		if err := influxqlF(cmd, logger, args); err != nil && err != context.Canceled {
 			logger.Error("Encountered fatal error", zap.String("error", err.Error()))
 			os.Exit(1)
 		}
 	},
 }
 
-// Flags contains all the CLI flag values for transpilerd.
+// Flags contains all the CLI flag values for influxqld.
 type Flags struct {
 	bindAddr string
 }
@@ -33,9 +33,9 @@ type Flags struct {
 var flags Flags
 
 func init() {
-	viper.SetEnvPrefix("TRANSPILERD")
+	viper.SetEnvPrefix("INFLUXQLD")
 
-	transpileCmd.PersistentFlags().StringVar(&flags.bindAddr, "bind-addr", ":8098", "The bind address for this daemon.")
+	influxqlCmd.PersistentFlags().StringVar(&flags.bindAddr, "bind-addr", ":8098", "The bind address for this daemon.")
 	viper.BindEnv("BIND_ADDR")
 	if b := viper.GetString("BIND_ADDR"); b != "" {
 		flags.bindAddr = b
@@ -43,12 +43,12 @@ func init() {
 
 	// TODO(jsternberg): Connect directly to the storage hosts. There's no need to require proxying
 	// the requests through ifqld for this service.
-	transpileCmd.PersistentFlags().String("ifqld-hosts", "http://localhost:8093", "scheme://host:port address of the ifqld server.")
+	influxqlCmd.PersistentFlags().String("ifqld-hosts", "http://localhost:8093", "scheme://host:port address of the ifqld server.")
 	viper.BindEnv("IFQLD_HOSTS")
-	viper.BindPFlag("IFQLD_HOSTS", transpileCmd.PersistentFlags().Lookup("ifqld-hosts"))
+	viper.BindPFlag("IFQLD_HOSTS", influxqlCmd.PersistentFlags().Lookup("ifqld-hosts"))
 }
 
-func transpileF(cmd *cobra.Command, logger *zap.Logger, args []string) error {
+func influxqlF(cmd *cobra.Command, logger *zap.Logger, args []string) error {
 	hosts, err := discoverHosts()
 	if err != nil {
 		return err
@@ -59,22 +59,22 @@ func transpileF(cmd *cobra.Command, logger *zap.Logger, args []string) error {
 	// TODO(nathanielc): Allow QueryService to use multiple hosts.
 
 	logger.Info("Using ifqld service", zap.Strings("hosts", hosts))
-	transpileHandler := http.NewTranspilerQueryHandler()
-	transpileHandler.QueryService = &http.QueryService{
+	influxqlHandler := http.NewInfluxqlQueryHandler()
+	influxqlHandler.QueryService = &http.QueryService{
 		Addr: hosts[0],
 	}
 
 	//TODO(nathanielc): Add health checks
 
-	handler := http.NewHandler("transpile")
-	handler.Handler = transpileHandler
+	handler := http.NewHandler("influxql")
+	handler.Handler = influxqlHandler
 
-	logger.Info("Starting transpilerd", zap.String("bind_addr", flags.bindAddr))
+	logger.Info("Starting influxqld", zap.String("bind_addr", flags.bindAddr))
 	return http.ListenAndServe(flags.bindAddr, handler, logger)
 }
 
 func main() {
-	if err := transpileCmd.Execute(); err != nil {
+	if err := influxqlCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }

@@ -1,10 +1,10 @@
-# Transpilerd
+# InfluxQLD
 
-Transpilerd is daemon that can execute queries from various source languages by transpiling the query and tranforming the result.
+InfluxQLD is a daemon that can execute queries from InfluxQL using the 2.0 query engine.
 
 # Exposed Metrics
 
-The `transpilerd` process exposes a Prometheus endpoint on port `8098` by default.
+The `influxqld` process exposes an InfluxQL endpoint on port `8098` by default.
 
 The following metrics are exposed:
 
