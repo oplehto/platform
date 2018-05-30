@@ -83,6 +83,7 @@ func ifqlF(cmd *cobra.Command, args []string) {
 		ExecutorDependencies: make(execute.Dependencies),
 		ConcurrencyQuota:     concurrencyQuota,
 		MemoryBytesQuota:     int64(memoryBytesQuota),
+		Verbose:              true,
 	}
 	if err := injectDeps(config.ExecutorDependencies); err != nil {
 		logger.Error("error injecting dependencies", zap.Error(err))
