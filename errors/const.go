@@ -1,19 +1,21 @@
 package errors
 
-// compile time interface detection.
-var _ TypedError = ConstError(0)
-
 // ConstError implements TypedError interface, is a constant int type error.
 type ConstError Type
 
 // Error implement the error interface and returns the string value.
 func (e ConstError) Error() string {
-	return constStr[e-baseConst]
+	return constStrMap[e]
 }
 
-// Code implement the TypedError interface.
-func (e ConstError) Code() Type {
+// Type implement the TypedError interface.
+func (e ConstError) Type() Type {
 	return Type(e)
+}
+
+// InnerErr returns nil for ConstError, implements TypedError interface.
+func (e ConstError) InnerErr() TypedError {
+	return nil
 }
 
 // const errors
@@ -40,12 +42,17 @@ const (
 	notFoundContext = " not found on context"
 )
 
-var constStr = []string{
-	"authorization" + notFound,
-	"authorization" + notFoundContext,
-	"organization" + notFound,
-	"user" + notFound,
-	"token" + notFound,
-	"url missing id",
-	"empty value",
+var constStrMap = map[ConstError]string{
+	AuthorizationNotFound:        "authorization" + notFound,
+	AuthorizationNotFoundContext: "authorization" + notFoundContext,
+	OrganizationNotFound:         "organization" + notFound,
+	UserNotFound:                 "user" + notFound,
+	TokenNotFoundContext:         "token" + notFoundContext,
+	URLMissingID:                 "url missing id",
+	EmptyValue:                   "empty value",
+}
+
+// MarshalJSON implements json.Marshaler interface.
+func (e ConstError) MarshalJSON() ([]byte, error) {
+	return []byte("{}"), nil
 }

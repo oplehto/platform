@@ -19,7 +19,7 @@ func HandleHTTP(ctx context.Context, e HTTPError, w http.ResponseWriter) {
 	}
 
 	w.Header().Set("X-Influx-Error", e.Error())
-	w.Header().Set("X-Influx-Reference", fmt.Sprintf("%d", e.Code()))
+	w.Header().Set("X-Influx-Reference", fmt.Sprintf("%d", e.Type()))
 	w.WriteHeader(e.HTTPCode())
 }
 
@@ -36,63 +36,81 @@ const (
 	NotFound
 )
 
-var httpCode = []int{
-	http.StatusInternalServerError,
-	http.StatusBadRequest,
-	http.StatusUnprocessableEntity,
-	http.StatusForbidden,
-	http.StatusNotFound,
+var httpCode = map[Type]int{
+	InternalError: http.StatusInternalServerError,
+	MalformedData: http.StatusBadRequest,
+	InvalidData:   http.StatusUnprocessableEntity,
+	Forbidden:     http.StatusForbidden,
+	NotFound:      http.StatusNotFound,
 }
 
-var httpStr = []string{
-	"Internal Error",
-	"Malformed Data",
-	"Invalid Data",
-	"Forbidden",
-	"Not Found",
+var httpStrMap = map[Type]string{
+	InternalError: "Internal Error",
+	MalformedData: "Malformed Data",
+	InvalidData:   "Invalid Data",
+	Forbidden:     "Forbidden",
+	NotFound:      "Not Found",
 }
 
 type httpError struct {
-	HTTPTyp Type  `json:"http_type"`
-	Typ     Type  `json:"code"`
-	Err     error `json:"error"`
+	HTTPTyp  Type       `json:"http_type"`
+	HasType  bool       `json:"has_type"`
+	TypedErr TypedError `json:"typed_err,omitempty"`
+	Msg      string     `json:"message"`
 }
 
-func (e httpError) Code() Type {
-	return e.Typ
+func (e httpError) Type() Type {
+	return e.HTTPTyp
+}
+
+func (e httpError) InnerType() Type {
+	if e.HasType {
+		return e.TypedErr.Type()
+	}
+	return e.HTTPTyp
+}
+
+func (e httpError) InnerErr() TypedError {
+	if e.HasType {
+		return e.TypedErr
+	}
+	return nil
 }
 
 func (e httpError) Error() string {
-	if e.Typ/baseConst < caseHTTP {
-		return e.Err.Error()
+	if e.HasType && e.TypedErr.Type()/baseConst < caseHTTP {
+		return e.TypedErr.Error()
 	}
-	return fmt.Sprintf("%s: %v", e.Typ.Reference(), e.Err)
+	return fmt.Sprintf("%s: %s", e.Type().Reference(), e.Msg)
 }
 
 func (e httpError) HTTPCode() int {
-	return httpCode[e.HTTPTyp-baseHTTP]
+	return httpCode[e.HTTPTyp]
 }
 
-func newHTTP(typ Type) func(e error) HTTPError {
+func newHTTPErrGenerator(typ Type) func(e error) HTTPError {
 	return func(e error) HTTPError {
+		if e == nil {
+			return nil
+		}
 		he := &httpError{
 			HTTPTyp: typ,
-			Typ:     typ,
-			Err:     e,
+			Msg:     e.Error(),
 		}
 		if typedErr, ok := e.(TypedError); ok {
-			he.Typ = typedErr.Code()
+			he.HasType = true
+			he.TypedErr = typedErr
 		}
-		return *he
+		return he
 	}
 }
 
 // funcs to create new HTTPError
 // example: errHTTP := NewInternalError(err)
 var (
-	NewInternalError = newHTTP(InternalError)
-	NewMalformedData = newHTTP(MalformedData)
-	NewInvalidData   = newHTTP(InvalidData)
-	NewForbidden     = newHTTP(Forbidden)
-	NewNotFound      = newHTTP(NotFound)
+	NewInternalError = newHTTPErrGenerator(InternalError)
+	NewMalformedData = newHTTPErrGenerator(MalformedData)
+	NewInvalidData   = newHTTPErrGenerator(InvalidData)
+	NewForbidden     = newHTTPErrGenerator(Forbidden)
+	NewNotFound      = newHTTPErrGenerator(NotFound)
 )

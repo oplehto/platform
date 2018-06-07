@@ -2,7 +2,6 @@ package errors
 
 import (
 	"encoding/json"
-	"strconv"
 )
 
 // Type of an error.
@@ -12,20 +11,21 @@ type Type int
 func (typ Type) Reference() string {
 	switch typ / baseConst {
 	case caseHTTP:
-		return httpStr[typ-baseHTTP]
+		return httpStrMap[typ]
 	case caseWithValue:
-		return withValueStr[typ-baseWithValue]
+		return withValueStr[typ]
 	case caseConst:
-		return constStr[typ-baseConst]
+		return constStrMap[ConstError(typ)]
 	default:
-		return withErrStr[typ-baseErr]
+		return withErrStr[typ]
 	}
 }
 
 // TypedError wraps error with a reference type.
 type TypedError interface {
-	// Code returns the integer value of the error type.
-	Code() Type
+	// Type returns the integer value of the error type.
+	Type() Type
+	InnerErr() TypedError
 	error
 }
 
@@ -46,44 +46,97 @@ const (
 )
 
 type marshaler struct {
-	Code Type            `json:"code"`
-	Raw  json.RawMessage `json:"message"`
+	Code    Type   `json:"code"`
+	Message string `json:"message"`
+	// place another marshaler to do recursive deep unmarshal.
+	Marshaler *marshaler       `json:"embed,omitempty"`
+	Raw       *json.RawMessage `json:"raw,omitempty"`
 }
 
 // MarshalJSON is the method used to embed a cutomized json.Marshaler interface.
-func MarshalJSON(typedErr TypedError) ([]byte, error) {
-	b, err := json.Marshal(typedErr)
-	if err != nil {
-		return b, err
+func MarshalJSON(typedErr TypedError) ([]byte, TypedError) {
+	if typedErr == nil {
+		return []byte{}, nil
 	}
-	m := marshaler{
-		Code: typedErr.Code(),
-		Raw:  json.RawMessage(b),
+	var b []byte
+	var err error
+	var raw json.RawMessage
+	m := &marshaler{
+		Code:    typedErr.Type(),
+		Message: typedErr.Error(),
 	}
-	return json.Marshal(m)
+
+	if typedErr.InnerErr() == nil {
+		if b, err = json.Marshal(typedErr); err != nil {
+			return b, NewJSONInnerErrMarshal(err)
+		}
+		raw = json.RawMessage(b)
+		m.Raw = &raw
+		goto returnMarshal
+	}
+
+	if b, err = MarshalJSON(typedErr.InnerErr()); err != nil {
+		return b, NewJSONMarshal(err)
+	}
+	raw = json.RawMessage(b)
+	m.Marshaler = &marshaler{
+		Code:    typedErr.InnerErr().Type(),
+		Message: typedErr.InnerErr().Error(),
+		Raw:     &raw,
+	}
+returnMarshal:
+	result, err := json.Marshal(m)
+	return result, NewJSONMarshal(err)
 }
 
 // UnmarshalJSON is the method used to embed a cutomized json.Unmarshaler interface.
-func UnmarshalJSON(b []byte) (TypedError, error) {
+func UnmarshalJSON(b []byte) (e, errTyped TypedError) {
 	m := new(marshaler)
-	var result TypedError
-	if err := json.Unmarshal(b, m); err != nil {
-		return nil, err
+	err := json.Unmarshal(b, m)
+	if err != nil {
+		return nil, NewJSONUnmarshal(err)
 	}
 	switch m.Code / baseConst {
-	case caseHTTP:
-		result = new(httpError)
 	case caseWithValue:
-		result = new(withValue)
+		item := new(withValue)
+		err = json.Unmarshal(*m.Raw, item)
+		return errWithValue(m.Code)(item.Values...), NewJSONUnmarshal(err)
 	case caseConst:
-		i, err := strconv.Atoi(string(m.Raw))
-		if err != nil {
-			return nil, err
+		return ConstError(m.Code), nil
+	case caseHTTP:
+		item := new(httpError)
+		if m.Raw != nil {
+			// no type
+			err = json.Unmarshal(*m.Raw, item)
+			return item, NewJSONUnmarshal(err)
 		}
-		return ConstError(i), nil
+		if m.Marshaler != nil {
+			item.TypedErr, err = UnmarshalJSON(*m.Marshaler.Raw)
+			if err != nil {
+				return nil, NewJSONUnmarshal(err)
+			}
+			item.HTTPTyp = m.Code
+			item.Msg = item.TypedErr.Error()
+			item.HasType = true
+		}
+		return item, NewJSONUnmarshal(err)
 	default:
-		result = new(withErr)
+		item := new(withErr)
+		if m.Raw != nil {
+			// no type
+			err = json.Unmarshal(*m.Raw, item)
+			return item, NewJSONUnmarshal(err)
+		}
+		if m.Marshaler != nil {
+			item.TypedErr, err = UnmarshalJSON(*m.Marshaler.Raw)
+			if err != nil {
+				return nil, NewJSONUnmarshal(err)
+			}
+			item.Typ = m.Code
+			item.Msg = item.TypedErr.Error()
+			item.HasType = true
+		}
+		return item, NewJSONUnmarshal(err)
 	}
-	err := json.Unmarshal([]byte(m.Raw), result)
-	return result, err
+
 }

@@ -5,40 +5,63 @@ import (
 )
 
 const (
-	// FailedToGetStorageHost indicate failed to get the storage host
+	// FailedToGetStorageHost indicate failed to get the storage host.
 	FailedToGetStorageHost Type = baseErr + iota
-	// FailedToGetBucketName indicate failed to get the bucket name
+	// FailedToGetBucketName indicate failed to get the bucket name.
 	FailedToGetBucketName
+	// JSONInnerErrMarshal indicate errors happened at innerErr mashal.
+	JSONInnerErrMarshal
+	// JSONMarshal indicate errors happened in json marshal.
+	JSONMarshal
+	// JSONUnmarshal indicate errors happened in json unmarshal.
+	JSONUnmarshal
 )
 
-var withErrStr = []string{
-	"Failed to get the storage host",
-	"Failed to get the bucket name",
+var withErrStr = map[Type]string{
+	FailedToGetStorageHost: "Failed to get the storage host",
+	FailedToGetBucketName:  "Failed to get the bucket name",
+	JSONInnerErrMarshal:    "JSON innerErr Mashal",
+	JSONMarshal:            "error happened in JSON marshal",
+	JSONUnmarshal:          "error happened in JSON unmarshal",
 }
 
 type withErr struct {
-	typ Type
-	Err error `json:"err"`
+	Typ      Type       `json:"code"`
+	HasType  bool       `json:"has_type"`
+	TypedErr TypedError `json:"typed_err,omitempty"`
+	Msg      string     `json:"message"`
 }
 
 func (e withErr) Error() string {
-	return fmt.Sprintf("%s: %v", e.typ.Reference(), e.Err)
+	return fmt.Sprintf("%s: %v", e.Typ.Reference(), e.Msg)
 }
 
-func (e withErr) Code() Type {
-	return e.typ
+func (e withErr) Type() Type {
+	return e.Typ
+}
+
+func (e withErr) InnerErr() TypedError {
+	if e.HasType {
+		return e.TypedErr
+	}
+	return nil
 }
 
 // newWithError is the generic func to wrap an error into TypedError
-func newWithError(typ Type) func(err error) TypedError {
-	return func(err error) TypedError {
-		if err == nil {
+func newWithError(typ Type) func(e error) TypedError {
+	return func(e error) TypedError {
+		if e == nil {
 			return nil
 		}
-		return withErr{
-			typ: typ,
-			Err: err,
+		he := &withErr{
+			Msg: e.Error(),
+			Typ: typ,
 		}
+		if typedErr, ok := e.(TypedError); ok {
+			he.HasType = true
+			he.TypedErr = typedErr
+		}
+		return he
 	}
 }
 
@@ -47,4 +70,7 @@ func newWithError(typ Type) func(err error) TypedError {
 var (
 	NewFailedToGetStorageHost = newWithError(FailedToGetStorageHost)
 	NewFailedToGetBucketName  = newWithError(FailedToGetBucketName)
+	NewJSONInnerErrMarshal    = newWithError(JSONInnerErrMarshal)
+	NewJSONMarshal            = newWithError(JSONMarshal)
+	NewJSONUnmarshal          = newWithError(JSONUnmarshal)
 )

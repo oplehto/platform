@@ -9,7 +9,9 @@
 
     ```go
        type TypedError interface {
-	        Code() Type
+          Type() Type
+          // if TypedError has no InnerErr, returns nil
+          InnerErr() TypedError
 	        error
         }
     ```
@@ -36,7 +38,7 @@
          like `errors.Wrap("a label", err)`
          Yes? Create an error in withErr.go
          * Append the Enum name in const
-         * Append the label in withErrStr.
+         * Append the label in withErrStr map.
          * Append a NewFunc in the vars func
          * Append a testcode in errors_test.go TestIota 
        
@@ -52,7 +54,7 @@
          like `fmt.Errof("Organization not found")`
          Yes? Create an error in const.go
          * Append the enum name to const
-         * Append the string value to constStr
+         * Append the string value to constStrMap
          * Append a testcode in errors_test.go TestIota 
 
        - Is the error needs an http code
