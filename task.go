@@ -31,9 +31,6 @@ type Log string
 type TaskService interface {
 	FindTaskByID(ctx context.Context, id ID) (*Task, error)
 
-	// Returns a task that matches filter.
-	FindTask(ctx context.Context, filter TaskFilter) (*Task, error)
-
 	// Returns a list of tasks that match a filter (limit 100) and the total count
 	// of matching tasks.
 	FindTasks(ctx context.Context, filter TaskFilter) ([]*Task, int, error)
@@ -53,8 +50,7 @@ type TaskService interface {
 	// Returns a list of runs that match a filter and the total count of returned runs.
 	FindRuns(ctx context.Context, filter RunFilter) ([]*Run, int, error)
 
-	// Returns a run that matches a filter
-	FindRun(ctx context.Context, filter RunFilter) (*Run, error)
+	FindRunByID(ctx context.Context, id ID) (*Run, error)
 
 	// Creates and returns a new run (which is a retry of another run)
 	RetryRun(ctx context.Context, id ID) (*Run, error)
