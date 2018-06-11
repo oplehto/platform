@@ -101,7 +101,7 @@ func queryTranspileTester(t *testing.T, transpiler query.Transpiler, qs query.Qu
 		t.Fatal(err)
 	}
 
-	spec, err := transpiler.Transpile(context.Background(), q)
+	spec, err := transpiler.Transpile(context.Background(), q, nil)
 	if err != nil {
 		t.Fatalf("failed to transpile: %v", err)
 	}

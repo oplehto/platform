@@ -50,8 +50,12 @@ func createVarRefCursor(t *transpilerState, ref *influxql.VarRef) (cursor, error
 	// Create the from spec and add it to the list of operations.
 	// TODO(jsternberg): Autogenerate these IDs and track the resulting operation
 	// so we can reference them from other locations.
+	db := mm.Database
+	if db == "" {
+		db = t.config.Database
+	}
 	from := t.op("from", &functions.FromOpSpec{
-		Database: mm.Database,
+		Database: db,
 	})
 
 	valuer := influxql.NowValuer{Now: t.now}

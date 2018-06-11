@@ -18,7 +18,7 @@ func NewTranspiler() *Transpiler {
 	return new(Transpiler)
 }
 
-func (t *Transpiler) Transpile(ctx context.Context, txt string) (*query.Spec, error) {
+func (t *Transpiler) Transpile(ctx context.Context, txt string, config interface{}) (*query.Spec, error) {
 	// Parse the text of the query.
 	q, err := influxql.ParseQuery(txt)
 	if err != nil {
@@ -36,23 +36,28 @@ func (t *Transpiler) Transpile(ctx context.Context, txt string) (*query.Spec, er
 		return nil, errors.New("only supports select statements")
 	}
 
-	transpiler := newTranspilerState(s)
+	cfg, _ := config.(*Config)
+	transpiler := newTranspilerState(s, cfg)
 	return transpiler.Transpile(ctx)
 }
 
 type transpilerState struct {
 	stmt   *influxql.SelectStatement
+	config Config
 	spec   *query.Spec
 	nextID map[string]int
 	now    time.Time
 }
 
-func newTranspilerState(stmt *influxql.SelectStatement) *transpilerState {
+func newTranspilerState(stmt *influxql.SelectStatement, config *Config) *transpilerState {
 	state := &transpilerState{
 		stmt:   stmt.Clone(),
 		spec:   &query.Spec{},
 		nextID: make(map[string]int),
 		now:    time.Now(),
+	}
+	if config != nil {
+		state.config = *config
 	}
 	// Omit the time from the cloned statement so it doesn't show up in
 	// the list of column names.

@@ -46,7 +46,22 @@ func (h *TranspilerQueryHandler) handlePostQuery(w http.ResponseWriter, r *http.
 
 	ce := influxqlCE
 
-	results, err := query.QueryWithTranspile(ctx, h.OrgID, queryStr, h.QueryService, ce.transpiler)
+	// Create the default configuration and then decode the http parameters into it.
+	config := ce.transpiler.DefaultConfig()
+	if err := DecodeParams(&config, r); err != nil {
+		kerrors.EncodeHTTP(ctx, err, w)
+		return
+	}
+
+	// Generate the query specification using the transpiler.
+	spec, err := ce.transpiler.Transpile(ctx, queryStr, config)
+	if err != nil {
+		kerrors.EncodeHTTP(ctx, err, w)
+		return
+	}
+
+	// Send the query specification to the query service.
+	results, err := h.QueryService.Query(ctx, h.OrgID, spec)
 	if err != nil {
 		kerrors.EncodeHTTP(ctx, err, w)
 		return

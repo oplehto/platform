@@ -1026,7 +1026,7 @@ func TestTranspiler(t *testing.T) {
 			}
 
 			transpiler := influxql.NewTranspiler()
-			spec, err := transpiler.Transpile(context.Background(), tt.s)
+			spec, err := transpiler.Transpile(context.Background(), tt.s, nil)
 			if err != nil {
 				t.Fatalf("unexpected error: %s", err)
 			} else if err := spec.Validate(); err != nil {
