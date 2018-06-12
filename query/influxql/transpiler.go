@@ -12,10 +12,14 @@ import (
 )
 
 // Transpiler converts InfluxQL queries into a query spec.
-type Transpiler struct{}
+type Transpiler struct {
+	NowFn func() time.Time
+}
 
 func NewTranspiler() *Transpiler {
-	return new(Transpiler)
+	return &Transpiler{
+		NowFn: time.Now,
+	}
 }
 
 func (t *Transpiler) Transpile(ctx context.Context, txt string) (*query.Spec, error) {
@@ -36,7 +40,7 @@ func (t *Transpiler) Transpile(ctx context.Context, txt string) (*query.Spec, er
 		return nil, errors.New("only supports select statements")
 	}
 
-	transpiler := newTranspilerState(s)
+	transpiler := newTranspilerState(t, s)
 	return transpiler.Transpile(ctx)
 }
 
@@ -47,12 +51,12 @@ type transpilerState struct {
 	now    time.Time
 }
 
-func newTranspilerState(stmt *influxql.SelectStatement) *transpilerState {
+func newTranspilerState(t *Transpiler, stmt *influxql.SelectStatement) *transpilerState {
 	state := &transpilerState{
 		stmt:   stmt.Clone(),
 		spec:   &query.Spec{},
 		nextID: make(map[string]int),
-		now:    time.Now(),
+		now:    t.NowFn(),
 	}
 	// Omit the time from the cloned statement so it doesn't show up in
 	// the list of column names.
