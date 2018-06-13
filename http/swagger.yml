@@ -373,14 +373,12 @@ paths:
         - in: query
           name: afterTime
           schema:
-            type: string
-            format: dateTime
+            type: dateTime
           description: filter runs to those queued after this time
         - in: query
           name: beforeTime
           schema:
-            type: string
-            format: dateTime
+            type: dateTime
           description: filter runs to those queued before this time
       responses:
         '200':
@@ -656,16 +654,13 @@ components:
           ]
         queuedAt:
           readOnly: true
-          type: string
-          format: dateTime
+          type: dateTime
         startTime:
           readOnly: true
-          type: string
-          format: dateTime
+          type: dateTime
         endTime:
           readOnly: true
-          type: string
-          format: dateTime
+          type: dateTime
         error:
           $ref: "#/components/schemas/Error"
         log:
