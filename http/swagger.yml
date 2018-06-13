@@ -374,11 +374,13 @@ paths:
           name: afterTime
           schema:
             type: string
+            format: dateTime
           description: filter runs to those queued after this time
         - in: query
           name: beforeTime
           schema:
             type: string
+            format: dateTime
           description: filter runs to those queued before this time
       responses:
         '200':
@@ -688,16 +690,16 @@ components:
           ]
         owner:
           $ref: "#/components/schemas/User"
-        ifql:
-          description: The ifql to run for this task.
+        query:
+          description: The ifql query to run for this task.
           type: string
         every:
           readOnly: true
-          description: A simple task repetition schedule; parsed from ifql.
+          description: A simple task repetition schedule; parsed from query.
           type: string
         cron:
           readOnly: true
-          description: A task repetition schedule in the form '* * * * * *'; parsed from ifql.
+          description: A task repetition schedule in the form '* * * * * *'; parsed from query.
           type: string
         last:
           $ref: "#/components/schemas/Run"
